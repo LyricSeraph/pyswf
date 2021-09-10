@@ -524,6 +524,7 @@ class SVGExporter(BaseExporter):
         self.svg.append(self.root)
         self.shape_exporter.defs = self.defs
         self._num_filters = 0
+        self._num_masks = 0
         self.fonts = dict([(x.characterId,x) for x in swf.all_tags_of_type(TagDefineFont)])
         self.fontInfos = dict([(x.characterId,x) for x in swf.all_tags_of_type(TagDefineFontInfo)])
 
@@ -678,7 +679,8 @@ class SVGExporter(BaseExporter):
         if tag.hasMatrix:
             use.set("transform", _swf_matrix_to_svg_matrix(tag.matrix))
         if tag.hasClipDepth:
-            self.mask_id = "mask%d" % tag.characterId
+            self._num_masks += 1
+            self.mask_id = "mask%d" % self._num_masks
             self.clip_depth = tag.clipDepth
             g = self._e.mask(id=self.mask_id)
             # make sure the mask is completely filled white
