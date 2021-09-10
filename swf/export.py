@@ -671,6 +671,24 @@ class SVGExporter(BaseExporter):
         shape.set("id", "c%d" % tag.characterId)
         self.defs.append(shape)
 
+    @classmethod
+    def translate_blend_mode(cls, mode):
+        mapping = {
+            0: 'normal',
+            1: 'normal',
+            3: 'multiply',
+            4: 'screen',
+            5: 'lighten',
+            6: 'darken',
+            7: 'difference',
+            10: 'invert',
+            13: 'overlay',
+            14: 'hard-light'
+        }
+        if mode in mapping:
+            return mapping[mode]
+        return 'normal'
+
     def export_display_list_item(self, tag, parent=None):
         g = self._e.g()
         use = self._e.use()
@@ -689,6 +707,9 @@ class SVGExporter(BaseExporter):
                 path.set("fill", "#ffffff")
         elif tag.depth <= self.clip_depth and self.mask_id is not None:
             g.set("mask", "url(#%s)" % self.mask_id)
+
+        if tag.hasBlendMode:
+            g.set("style", "mix-blend-mode: %s" % self.translate_blend_mode(tag.blendMode))
 
         filters = []
         filter_cxform = None
