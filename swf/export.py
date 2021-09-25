@@ -831,7 +831,7 @@ class SVGExporter(BaseExporter):
             buff = BytesIO()
             image.save(buff, "PNG")
             buff.seek(0)
-            data_url = _encode_png(buff.read())
+            data_url = _encode_png(buff.read()).decode()
             img = self._e.image()
             img.set("id", "c%s" % tag.characterId)
             img.set("x", "0")
@@ -1133,10 +1133,10 @@ class SVGBounds(object):
         self._matrix = self._calc_combined_matrix()
 
 def _encode_jpeg(data):
-    return b"data:image/jpeg;base64," + base64.encodestring(data)[:-1]
+    return b"data:image/jpeg;base64," + base64.encodebytes(data)[:-1]
 
 def _encode_png(data):
-    return b"data:image/png;base64," + base64.encodestring(data)[:-1]
+    return b"data:image/png;base64," + base64.encodebytes(data)[:-1]
 
 def _swf_matrix_to_matrix(swf_matrix=None, need_scale=False, need_translate=True, need_rotation=False, unit_div=20.0):
 
