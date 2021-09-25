@@ -63,6 +63,7 @@ class TagFactory(object):
         elif type == 65: return TagScriptLimits()
         elif type == 69: return TagFileAttributes()
         elif type == 70: return TagPlaceObject3()
+        elif type == 72: return TagDoABCDefine()
         elif type == 73: return TagDefineFontAlignZones()
         elif type == 74: return TagCSMTextSettings()
         elif type == 75: return TagDefineFont3()
@@ -151,7 +152,7 @@ class SWFTimelineContainer(DefinitionTag):
     def get_dependencies(self):
         """ Returns the character ids this tag refers to """
         s = super(SWFTimelineContainer, self).get_dependencies()
-        for dt in self.all_tags_of_type(DefinitionTag):
+        for dt in self.all_tags_of_type((DefinitionTag, TagPlaceObject)):
             s.update(dt.get_dependencies())
         return s
 
@@ -595,7 +596,7 @@ class TagDefineFont(DefinitionTag):
     the DefineFont2 tag.
     The minimum file format version is SWF 1.
     """
-    TYPE= 10
+    TYPE = 10
     offsetTable = []
     glyphShapeTable = []
     def __init__(self):
@@ -1604,6 +1605,31 @@ class TagPlaceObject3(TagPlaceObject2):
     @property
     def type(self):
         return TagPlaceObject3.TYPE
+
+class TagDoABCDefine(Tag):
+    TYPE = 72
+    def __init__(self):
+        super(TagDoABCDefine, self).__init__()
+
+    @property
+    def name(self):
+        return "DoABCDefine"
+
+    @property
+    def type(self):
+        return TagDoABCDefine.TYPE
+
+    @property
+    def level(self):
+        return 1
+
+    @property
+    def version(self):
+        return 9
+
+    def parse(self, data, length, version=1):
+        pos = data.tell()
+        self.bytes = data.f.read(length - (data.tell() - pos))
 
 class TagDefineFontAlignZones(Tag):
     TYPE = 73

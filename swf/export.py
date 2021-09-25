@@ -18,7 +18,6 @@ try:
 except ImportError:
     from PIL import Image
 from io import BytesIO
-from six.moves import cStringIO
 import math
 import re
 import copy
@@ -421,7 +420,7 @@ class BaseExporter(object):
                 image_data = image.getdata()
                 image_data_len = len(image_data)
                 if num_alpha == image_data_len:
-                    buff = ""
+                    buff = b""
                     for i in range(0, num_alpha):
                         alpha = ord(tag.bitmapAlphaData.read(1))
                         rgb = list(image_data[i])
@@ -525,8 +524,20 @@ class SVGExporter(BaseExporter):
         self.svg.append(self.root)
         self.shape_exporter.defs = self.defs
         self._num_filters = 0
+        self._num_masks = 0
         self.fonts = dict([(x.characterId,x) for x in swf.all_tags_of_type(TagDefineFont)])
         self.fontInfos = dict([(x.characterId,x) for x in swf.all_tags_of_type(TagDefineFontInfo)])
+
+        # Make sure that all fonts have a fontInfos entry
+        for font_id in self.fonts.keys():
+            if font_id not in self.fontInfos:
+                info = TagDefineFontInfo()
+
+                # For now, draw characters as paths (instead of using SVG <text> elements)
+                info.useGlyphText = True
+
+                info.codeTable = self.fonts[font_id].codeTable
+                self.fontInfos[font_id] = info
 
         # GO!
         super(SVGExporter, self).export(swf, force_stroke)
@@ -542,11 +553,11 @@ class SVGExporter(BaseExporter):
               self.bounds.width, self.bounds.height]
         self.svg.set("viewBox", "%s" % " ".join(map(str,vb)))
 
-        # Return the SVG as StringIO
+        # Return the SVG as BytesIO
         return self._serialize()
 
     def _serialize(self):
-        return cStringIO(etree.tostring(self.svg,
+        return BytesIO(etree.tostring(self.svg,
                 encoding="UTF-8", xml_declaration=True))
 
     def export_define_sprite(self, tag, parent=None):
@@ -660,6 +671,24 @@ class SVGExporter(BaseExporter):
         shape.set("id", "c%d" % tag.characterId)
         self.defs.append(shape)
 
+    @classmethod
+    def translate_blend_mode(cls, mode):
+        mapping = {
+            0: 'normal',
+            1: 'normal',
+            3: 'multiply',
+            4: 'screen',
+            5: 'lighten',
+            6: 'darken',
+            7: 'difference',
+            10: 'invert',
+            13: 'overlay',
+            14: 'hard-light'
+        }
+        if mode in mapping:
+            return mapping[mode]
+        return 'normal'
+
     def export_display_list_item(self, tag, parent=None):
         g = self._e.g()
         use = self._e.use()
@@ -668,7 +697,8 @@ class SVGExporter(BaseExporter):
         if tag.hasMatrix:
             use.set("transform", _swf_matrix_to_svg_matrix(tag.matrix))
         if tag.hasClipDepth:
-            self.mask_id = "mask%d" % tag.characterId
+            self._num_masks += 1
+            self.mask_id = "mask%d" % self._num_masks
             self.clip_depth = tag.clipDepth
             g = self._e.mask(id=self.mask_id)
             # make sure the mask is completely filled white
@@ -677,6 +707,9 @@ class SVGExporter(BaseExporter):
                 path.set("fill", "#ffffff")
         elif tag.depth <= self.clip_depth and self.mask_id is not None:
             g.set("mask", "url(#%s)" % self.mask_id)
+
+        if tag.hasBlendMode:
+            g.set("style", "mix-blend-mode: %s" % self.translate_blend_mode(tag.blendMode))
 
         filters = []
         filter_cxform = None
@@ -798,7 +831,7 @@ class SVGExporter(BaseExporter):
             buff = BytesIO()
             image.save(buff, "PNG")
             buff.seek(0)
-            data_url = _encode_png(buff.read())
+            data_url = _encode_png(buff.read()).decode()
             img = self._e.image()
             img.set("id", "c%s" % tag.characterId)
             img.set("x", "0")
@@ -1100,10 +1133,10 @@ class SVGBounds(object):
         self._matrix = self._calc_combined_matrix()
 
 def _encode_jpeg(data):
-    return "data:image/jpeg;base64," + base64.encodestring(data)[:-1]
+    return b"data:image/jpeg;base64," + base64.encodebytes(data)[:-1]
 
 def _encode_png(data):
-    return "data:image/png;base64," + base64.encodestring(data)[:-1]
+    return b"data:image/png;base64," + base64.encodebytes(data)[:-1]
 
 def _swf_matrix_to_matrix(swf_matrix=None, need_scale=False, need_translate=True, need_rotation=False, unit_div=20.0):
 
